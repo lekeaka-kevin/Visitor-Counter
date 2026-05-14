@@ -1,26 +1,32 @@
 import json
 import boto3
 from datetime import datetime
+from decimal import Decimal
+
+# Helper function to convert Decimal to int/float for JSON
+def decimal_to_int(obj):
+    if isinstance(obj, Decimal):
+        return int(obj)
+    raise TypeError
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('VisitorCounter')
 
 def lambda_handler(event, context):
-    print("Lambda invoked")  # This will appear in CloudWatch logs
-    
     try:
         # Get current count
         response = table.get_item(Key={'id': 'visitor_count'})
         
         if 'Item' in response:
-            current_count = response['Item']['count']
+            # Convert Decimal to int
+            current_count = int(response['Item']['count'])
         else:
             current_count = 0
         
         # Increment
         new_count = current_count + 1
         
-        # Save
+        # Save to DynamoDB
         table.put_item(
             Item={
                 'id': 'visitor_count',
@@ -29,7 +35,7 @@ def lambda_handler(event, context):
             }
         )
         
-        # Return success
+        # Return success - use default=str to handle Decimal
         return {
             'statusCode': 200,
             'headers': {
@@ -50,7 +56,5 @@ def lambda_handler(event, context):
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({
-                'error': str(e)
-            })
+            'body': json.dumps({'error': str(e)})
         }
