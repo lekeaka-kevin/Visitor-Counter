@@ -6,7 +6,10 @@ dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('VisitorCounter')
 
 def lambda_handler(event, context):
+    print("Lambda invoked")  # This will appear in CloudWatch logs
+    
     try:
+        # Get current count
         response = table.get_item(Key={'id': 'visitor_count'})
         
         if 'Item' in response:
@@ -14,8 +17,10 @@ def lambda_handler(event, context):
         else:
             current_count = 0
         
+        # Increment
         new_count = current_count + 1
         
+        # Save
         table.put_item(
             Item={
                 'id': 'visitor_count',
@@ -24,6 +29,7 @@ def lambda_handler(event, context):
             }
         )
         
+        # Return success
         return {
             'statusCode': 200,
             'headers': {
@@ -44,5 +50,7 @@ def lambda_handler(event, context):
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': json.dumps({'error': str(e)})
+            'body': json.dumps({
+                'error': str(e)
+            })
         }
