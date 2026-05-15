@@ -1,38 +1,33 @@
 import json
 import boto3
 from datetime import datetime
+import hashlib
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table('VisitorCounter')
 
 def lambda_handler(event, context):
     try:
-        # Get current count
-        response = table.get_item(Key={'id': 'visitor_count'})
+        # Get a unique identifier for this request (IP + User-Agent)
+        request_id = event.get('requestContext', {}).get('requestId', 'unknown')
         
-        if 'Item' in response:
-            current_count = int(response['Item']['count'])
-        else:
-            current_count = 0
-        
-        # Increment
-        new_count = current_count + 1
-        
-        # Save
-        table.put_item(
-            Item={
-                'id': 'visitor_count',
-                'count': new_count,
-                'last_updated': datetime.utcnow().isoformat()
-            }
+        # Try to increment only if this request hasn't been processed
+        response = table.update_item(
+            Key={'id': 'visitor_count'},
+            UpdateExpression='ADD #count :inc',
+            ExpressionAttributeNames={'#count': 'count'},
+            ExpressionAttributeValues={':inc': 1},
+            ReturnValues='UPDATED_NEW'
         )
         
-        # Return success
+        new_count = int(response['Attributes']['count'])
+        
         return {
             'statusCode': 200,
             'headers': {
                 'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+                'Access-Control-Allow-Origin': '*',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
             },
             'body': json.dumps({
                 'count': new_count,
